@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sesión en Vivo - Seminario</title>
+    <style>
+        /* Reset & base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Contenedor principal: simula una ventana de reunión */
+        .meeting-container {
+            max-width: 1100px;
+            width: 100%;
+            background: #0a0a0a;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+            border: 1px solid #1e1e1e;
+            position: relative;
+        }
+
+        /* Cabecera: espectadores + estado */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 24px;
+            background: #0d0d0d;
+            border-bottom: 1px solid #1a1a1a;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }
+
+        .header .title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header .title .live-badge {
+            background: #ea4335;
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 3px 12px;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: pulse-dot 1.8s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(0.96);
+            }
+        }
+
+        .header .viewers {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #151515;
+            padding: 5px 16px 5px 12px;
+            border-radius: 40px;
+            border: 1px solid #2a2a2a;
+            font-weight: 500;
+        }
+
+        .header .viewers .eye-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .header .viewers .count {
+            font-variant-numeric: tabular-nums;
+            min-width: 40px;
+            text-align: center;
+            transition: color 0.2s;
+        }
+
+        /* Área de video */
+        .video-wrapper {
+            position: relative;
+            background: #000;
+            aspect-ratio: 16 / 9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .video-wrapper video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+            display: block;
+            pointer-events: auto;
+            /* Permitimos fullscreen y volumen, pero bloqueamos controles nativos */
+        }
+
+        /* Overlay de "unirme" (se oculta al hacer clic) */
+        .join-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            transition: opacity 0.6s ease;
+        }
+
+        .join-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .join-overlay .join-btn {
+            background: #0b57d0;
+            color: #fff;
+            border: none;
+            font-size: 28px;
+            font-weight: 600;
+            padding: 18px 56px;
+            border-radius: 60px;
+            cursor: pointer;
+            box-shadow: 0 8px 30px rgba(11, 87, 208, 0.4);
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .join-overlay .join-btn:hover {
+            background: #1a6bff;
+            transform: scale(1.02);
+            box-shadow: 0 12px 40px rgba(11, 87, 208, 0.6);
+        }
+
+        .join-overlay .join-btn:active {
+            transform: scale(0.97);
+        }
+
+        .join-overlay .sub-join {
+            margin-top: 18px;
+            color: #aaa;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }
+
+        /* Contenedor de botones de pago (aparecen a los 1h02) */
+        .offers-container {
+            padding: 28px 24px 34px;
+            background: #0c0c0c;
+            border-top: 1px solid #1a1a1a;
+            display: none;
+            /* se activa con JS */
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .offers-container.visible {
+            display: flex;
+        }
+
+        .offers-container .offer-label {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            background: linear-gradient(90deg, #f9d976, #f39f86);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .offers-grid {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 18px;
+            width: 100%;
+        }
+
+        .offer-card {
+            background: #141414;
+            border: 1px solid #2a2a2a;
+            border-radius: 20px;
+            padding: 22px 26px;
+            min-width: 200px;
+            flex: 1 1 180px;
+            text-align: center;
+            transition: 0.25s ease;
+            cursor: default;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animación llamativa en los botones */
+        .offer-card.animated {
+            animation: float-glow 2.6s infinite alternate ease-in-out;
+            border-color: #f5b042;
+            box-shadow: 0 0 30px rgba(245, 176, 66, 0.15);
+        }
+
+        @keyframes float-glow {
+            0% {
+                transform: translateY(0px);
+                box-shadow: 0 4px 20px rgba(245, 176, 66, 0.1);
+            }
+            100% {
+                transform: translateY(-8px);
+                box-shadow: 0 18px 50px rgba(245, 176, 66, 0.3);
+            }
+        }
+
+        .offer-card .price {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .offer-card .price small {
+            font-size: 18px;
+            font-weight: 400;
+            color: #aaa;
+        }
+
+        .offer-card .installments {
+            font-size: 18px;
+            color: #ccc;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        .offer-card .btn-offer {
+            margin-top: 16px;
+            background: #f5b042;
+            border: none;
+            color: #0a0a0a;
+            font-weight: 700;
+            font-size: 18px;
+            padding: 12px 24px;
+            border-radius: 60px;
+            width: 100%;
+            cursor: pointer;
+            transition: 0.2s;
+            box-shadow: 0 4px 14px rgba(245, 176, 66, 0.3);
+        }
+
+        .offer-card .btn-offer:hover {
+            background: #ffc55a;
+            transform: scale(1.02);
+        }
+
+        .offer-card .btn-offer:active {
+            transform: scale(0.96);
+        }
+
+        /* Estilo especial para el botón de 497 (destacar) */
+        .offer-card.highlight {
+            border-color: #f5b042;
+            background: #1c150a;
+        }
+
+        .offer-card.highlight .price {
+            color: #f5b042;
+        }
+
+        /* Contador de cupos (aparece a 1h27) */
+        .spots-container {
+            padding: 8px 24px 20px;
+            background: #0c0c0c;
+            border-top: 1px solid #1a1a1a;
+            display: none;
+            /* se activa con JS */
+            justify-content: center;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .spots-container.visible {
+            display: flex;
+        }
+
+        .spots-container .spots-label {
+            font-size: 20px;
+            font-weight: 500;
+            color: #f5b042;
+            letter-spacing: 0.3px;
+        }
+
+        .spots-container .spots-number {
+            font-size: 34px;
+            font-weight: 700;
+            background: #1e1e1e;
+            padding: 2px 24px;
+            border-radius: 60px;
+            border: 1px solid #f5b042;
+            color: #fff;
+            min-width: 70px;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Pie de página / info extra */
+        .footer-note {
+            padding: 12px 24px 18px;
+            background: #080808;
+            border-top: 1px solid #141414;
+            text-align: center;
+            color: #555;
+            font-size: 13px;
+            letter-spacing: 0.2px;
+        }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            .header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+                text-align: center;
+            }
+            .header .viewers {
+                justify-content: center;
+            }
+            .join-overlay .join-btn {
+                font-size: 22px;
+                padding: 14px 36px;
+            }
+            .offers-grid {
+                flex-direction: column;
+                align-items: center;
+            }
+            .offer-card {
+                width: 100%;
+                max-width: 320px;
+            }
+            .spots-container {
+                flex-direction: column;
+                gap: 6px;
+            }
+        }
+
+        /* Ocultar controles nativos del video (mantenemos solo volumen y fullscreen) */
+        video::-webkit-media-controls {
+            overflow: hidden !important;
+        }
+        video::-webkit-media-controls-enclosure {
+            overflow: hidden !important;
+        }
+        /* Mostrar solo mute y fullscreen */
+        video::-webkit-media-controls-play-button {
+            display: none !important;
+        }
+        video::-webkit-media-controls-timeline {
+            display: none !important;
+        }
+        video::-webkit-media-controls-current-time-display {
+            display: none !important;
+        }
+        video::-webkit-media-controls-time-remaining-display {
+            display: none !important;
+        }
+        video::-webkit-media-controls-seek-back-button {
+            display: none !important;
+        }
+        video::-webkit-media-controls-seek-forward-button {
+            display: none !important;
+        }
+        /* Permitir volumen y fullscreen */
+        video::-webkit-media-controls-mute-button {
+            display: inline-block !important;
+        }
+        video::-webkit-media-controls-fullscreen-button {
+            display: inline-block !important;
+        }
+        /* Para Firefox */
+        video::-moz-media-controls-playbutton {
+            display: none !important;
+        }
+        video::-moz-media-controls-timeline {
+            display: none !important;
+        }
+        video::-moz-media-controls-current-time-display {
+            display: none !important;
+        }
+        video::-moz-media-controls-time-remaining-display {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="meeting-container" id="app">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="title">
+                <span>🔴 Seminario en vivo</span>
+                <span class="live-badge">● EN VIVO</span>
+            </div>
+            <div class="viewers">
+                <span class="eye-icon">👁</span>
+                <span class="count" id="viewerCount">102</span>
+                <span style="color:#777;">espectadores</span>
+            </div>
+        </div>
+
+        <!-- VIDEO WRAPPER -->
+        <div class="video-wrapper">
+            <video id="seminarVideo" playsinline muted>
+                <source src="https://assets.cdn.filesafe.space/orLNFmqquwQDs4QXcbfS/media/6a99af79f20cf78ef111fb80.mp4" type="video/mp4" />
+                Tu navegador no soporta video HTML5.
+            </video>
+
+            <!-- Overlay de "Unirme" -->
+            <div class="join-overlay" id="joinOverlay">
+                <button class="join-btn" id="joinBtn">
+                    🎤 Unirme a la plática
+                </button>
+                <div class="sub-join">Haz clic para activar el sonido y unirte</div>
+            </div>
+        </div>
+
+        <!-- OFERTAS (aparecen a 1h02) -->
+        <div class="offers-container" id="offersContainer">
+            <div class="offer-label">⚡ Ofertas exclusivas para ti ⚡</div>
+            <div class="offers-grid">
+                <div class="offer-card animated">
+                    <div class="price">$159 <small>USD</small></div>
+                    <div class="installments">6 pagos de $26.50</div>
+                    <button class="btn-offer">Seleccionar</button>
+                </div>
+                <div class="offer-card animated" style="animation-delay:0.2s;">
+                    <div class="price">$249 <small>USD</small></div>
+                    <div class="installments">3 pagos de $83</div>
+                    <button class="btn-offer">Seleccionar</button>
+                </div>
+                <div class="offer-card animated highlight" style="animation-delay:0.4s;">
+                    <div class="price">$497 <small>USD</small></div>
+                    <div class="installments">Pago único</div>
+                    <button class="btn-offer">🔥 Comprar ahora</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUPOS RESTANTES (aparecen a 1h27) -->
+        <div class="spots-container" id="spotsContainer">
+            <span class="spots-label">🎯 Cupos restantes:</span>
+            <span class="spots-number" id="spotsNumber">10</span>
+        </div>
+
+        <div class="footer-note">
+            ⏱️ La sesión finaliza automáticamente · No se puede pausar ni adelantar
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // --- Elementos DOM ---
+            const video = document.getElementById('seminarVideo');
+            const joinOverlay = document.getElementById('joinOverlay');
+            const joinBtn = document.getElementById('joinBtn');
+            const viewerEl = document.getElementById('viewerCount');
+            const offersContainer = document.getElementById('offersContainer');
+            const spotsContainer = document.getElementById('spotsContainer');
+            const spotsNumber = document.getElementById('spotsNumber');
+
+            // --- Constantes de tiempo (en segundos) ---
+            const VIDEO_DURATION = 90 * 60; // 1h 30min = 5400s
+
+            // Hitos (en segundos desde el inicio)
+            const T_SPECTATOR_START = 0;
+            const T_SPECTATOR_MAX = 25 * 60; // min 25
+            const T_SPECTATOR_STABLE_START = 25 * 60;
+            const T_SPECTATOR_STABLE_END = 65 * 60; // 1h05
+            const T_SPECTATOR_DECLINE_START = 65 * 60;
+            const T_SPECTATOR_DECLINE_END = 87 * 60; // 1h27
+            const T_OFFERS_APPEAR = 62 * 60; // 1h02
+            const T_SPOTS_APPEAR = 87 * 60; // 1h27
+            const T_VIDEO_END = 90 * 60; // 1h30
+
+            // --- Estado ---
+            let isJoined = false;
+            let videoStarted = false;
+            let videoEnded = false;
+            let animationFrame = null;
+            let startTime = null; // timestamp de cuando se inicia el video (performance.now)
+            let elapsedSeconds = 0;
+            let viewerInterval = null;
+            let spotsInterval = null;
+            let offersShown = false;
+            let spotsShown = false;
+            let finalSpotCount = 1; // para ir bajando
+
+            // --- Funciones de espectadores ---
+            function getViewerCount(seconds) {
+                // Al principio: 102
+                if (seconds <= 0) return 102;
+                // Subida progresiva hasta minuto 25: 102 -> 192
+                if (seconds <= T_SPECTATOR_MAX) {
+                    const progress = seconds / T_SPECTATOR_MAX; // 0..1
+                    return Math.round(102 + progress * (192 - 102));
+                }
+                // Entre min 25 y 1h05: oscila entre 192 +/- 12-10
+                if (seconds >= T_SPECTATOR_STABLE_START && seconds <= T_SPECTATOR_STABLE_END) {
+                    // oscilación senoidal entre 180 y 204 (aprox)
+                    const t = (seconds - T_SPECTATOR_STABLE_START) / (T_SPECTATOR_STABLE_END - T_SPECTATOR_STABLE_START);
+                    const wave = Math.sin(t * Math.PI * 8) * 10 + 2; // entre -8 y 12
+                    return Math.round(192 + wave);
+                }
+                // Descenso de 1h05 a 1h27: de ~192 a 12
+                if (seconds >= T_SPECTATOR_DECLINE_START && seconds <= T_SPECTATOR_DECLINE_END) {
+                    const progress = (seconds - T_SPECTATOR_DECLINE_START) / (T_SPECTATOR_DECLINE_END - T_SPECTATOR_DECLINE_START);
+                    const current = 192 - progress * (192 - 12);
+                    // añadimos pequeña oscilación
+                    const wave = Math.sin(seconds * 0.15) * 2;
+                    return Math.round(Math.max(10, current + wave));
+                }
+                // después de 1h27 hasta el final: sigue bajando hasta 1-2
+                if (seconds > T_SPECTATOR_DECLINE_END && seconds < VIDEO_DURATION) {
+                    const extra = (seconds - T_SPECTATOR_DECLINE_END) / (VIDEO_DURATION - T_SPECTATOR_DECLINE_END);
+                    const val = 12 - extra * 10;
+                    return Math.round(Math.max(1, val));
+                }
+                return 1;
+            }
+
+            // --- Actualizar contador de espectadores ---
+            function updateViewerCount(seconds) {
+                const count = getViewerCount(seconds);
+                viewerEl.textContent = count;
+            }
+
+            // --- Actualizar cupos (de 10 a 1) ---
+            function updateSpots(seconds) {
+                if (seconds < T_SPOTS_APPEAR) {
+                    spotsContainer.classList.remove('visible');
+                    return;
+                }
+                // aparecer a 1h27 con 10, y bajar hasta 1 en los 3 minutos restantes (hasta 1h30)
+                const elapsedSinceSpots = seconds - T_SPOTS_APPEAR;
+                const totalSpotDuration = VIDEO_DURATION - T_SPOTS_APPEAR; // 180s
+                let spots = 10 - (elapsedSinceSpots / totalSpotDuration) * 9;
+                spots = Math.max(1, Math.round(spots));
+                // asegurar que no baje de 1
+                if (spots < 1) spots = 1;
+                spotsNumber.textContent = spots;
+                spotsContainer.classList.add('visible');
+            }
+
+            // --- Mostrar ofertas ---
+            function showOffers() {
+                if (!offersShown) {
+                    offersContainer.classList.add('visible');
+                    offersShown = true;
+                }
+            }
+
+            // --- Loop principal de sincronización ---
+            function syncLoop() {
+                if (!videoStarted || videoEnded) {
+                    animationFrame = requestAnimationFrame(syncLoop);
+                    return;
+                }
+
+                const now = performance.now();
+                const delta = (now - startTime) / 1000; // segundos transcurridos
+                elapsedSeconds = Math.min(delta, VIDEO_DURATION);
+
+                // Actualizar espectadores
+                updateViewerCount(elapsedSeconds);
+
+                // Mostrar ofertas en 1h02
+                if (elapsedSeconds >= T_OFFERS_APPEAR && !offersShown) {
+                    showOffers();
+                }
+
+                // Actualizar cupos (a partir de 1h27)
+                if (elapsedSeconds >= T_SPOTS_APPEAR) {
+                    updateSpots(elapsedSeconds);
+                }
+
+                // Verificar si el video terminó (por duración)
+                if (elapsedSeconds >= VIDEO_DURATION) {
+                    // Terminar sesión
+                    finishSession();
+                    return;
+                }
+
+                animationFrame = requestAnimationFrame(syncLoop);
+            }
+
+            // --- Finalizar sesión ---
+            function finishSession() {
+                if (videoEnded) return;
+                videoEnded = true;
+                // Pausar y reiniciar (pero no se podrá reproducir de nuevo)
+                video.pause();
+                video.currentTime = 0;
+                // Ocultar ofertas y cupos? según diseño: "al finalizar el video se quita y no se puede volver a reproducir"
+                // Ocultamos todo lo que sea interactivo, mostramos mensaje?
+                offersContainer.classList.remove('visible');
+                spotsContainer.classList.remove('visible');
+                // Mostrar un mensaje de sesión finalizada
+                const overlay = document.createElement('div');
+                overlay.style.position = 'absolute';
+                overlay.style.inset = '0';
+                overlay.style.background = 'rgba(0,0,0,0.8)';
+                overlay.style.display = 'flex';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.style.flexDirection = 'column';
+                overlay.style.zIndex = '30';
+                overlay.style.color = '#fff';
+                overlay.style.fontSize = '28px';
+                overlay.style.fontWeight = '600';
+                overlay.style.padding = '20px';
+                overlay.innerHTML = `
+                        <div style="font-size:48px;margin-bottom:16px;">🏁</div>
+                        <div>Sesión finalizada</div>
+                        <div style="font-size:18px;font-weight:400;color:#aaa;margin-top:10px;">Gracias por asistir</div>
+                    `;
+                const wrapper = document.querySelector('.video-wrapper');
+                wrapper.appendChild(overlay);
+
+                // Detener loops
+                if (animationFrame) cancelAnimationFrame(animationFrame);
+                if (viewerInterval) clearInterval(viewerInterval);
+                if (spotsInterval) clearInterval(spotsInterval);
+                // No se puede volver a reproducir
+                video.removeAttribute('controls');
+                video.style.pointerEvents = 'none';
+            }
+
+            // --- Iniciar la sesión (al hacer clic en "unirme") ---
+            function startSession() {
+                if (isJoined) return;
+                isJoined = true;
+
+                // Ocultar overlay
+                joinOverlay.classList.add('hidden');
+
+                // Activar sonido (quitar muted)
+                video.muted = false;
+
+                // Reproducir video
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        videoStarted = true;
+                        startTime = performance.now();
+                        // Iniciar loop de sincronización
+                        if (animationFrame) cancelAnimationFrame(animationFrame);
+                        animationFrame = requestAnimationFrame(syncLoop);
+
+                        // Forzar actualización inicial
+                        updateViewerCount(0);
+                    }).catch(err => {
+                        console.warn('Error al reproducir:', err);
+                        // Si falla, intentar de nuevo con interacción del usuario
+                        video.muted = true;
+                        video.play().then(() => {
+                            video.muted = false;
+                            videoStarted = true;
+                            startTime = performance.now();
+                            animationFrame = requestAnimationFrame(syncLoop);
+                            updateViewerCount(0);
+                        }).catch(e => {
+                            alert('No se pudo iniciar el video. Intenta de nuevo.');
+                            isJoined = false;
+                            joinOverlay.classList.remove('hidden');
+                        });
+                    });
+                }
+
+                // También iniciar un intervalo de respaldo para actualizar espectadores
+                if (viewerInterval) clearInterval(viewerInterval);
+                viewerInterval = setInterval(() => {
+                    if (!videoStarted || videoEnded) return;
+                    // actualización extra por si el loop se atrasa
+                    const now = performance.now();
+                    const delta = (now - startTime) / 1000;
+                    if (delta < VIDEO_DURATION) {
+                        updateViewerCount(delta);
+                    }
+                }, 1000);
+            }
+
+            // --- Evento del botón unirme ---
+            joinBtn.addEventListener('click', startSession);
+
+            // --- Prevenir que el usuario pause o busque en el video ---
+            video.addEventListener('play', function() {
+                // Asegurar que no se pueda pausar con teclado/click
+            });
+
+            video.addEventListener('pause', function(e) {
+                // Si el video se pausa por alguna razón (excepto si es el final), lo reanudamos
+                if (!videoEnded && videoStarted) {
+                    video.play().catch(() => {});
+                }
+            });
+
+            // Bloquear seek (adelantar/atrasar)
+            video.addEventListener('seeking', function(e) {
+                if (!videoEnded && videoStarted) {
+                    // Si el usuario intenta buscar, lo regresamos a donde estaba
+                    // pero solo si no es el final
+                    if (elapsedSeconds > 0 && elapsedSeconds < VIDEO_DURATION) {
+                        video.currentTime = Math.min(elapsedSeconds, VIDEO_DURATION - 0.5);
+                    }
+                }
+            });
+
+            // Bloquear click derecho en el video para evitar menú contextual
+            video.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+
+            // --- Configuración inicial ---
+            // Asegurar que el video no se pueda adelantar con teclas
+            document.addEventListener('keydown', function(e) {
+                // Prevenir espacio (pausa) y flechas (seek)
+                if (e.target === video) {
+                    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e
+                        .key === 'ArrowDown') {
+                        e.preventDefault();
+                    }
+                }
+            });
+
+            // --- Comportamiento de los botones de oferta (demo) ---
+            document.querySelectorAll('.btn-offer').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const card = this.closest('.offer-card');
+                    const price = card ? card.querySelector('.price')?.innerText?.trim() : '';
+                    alert('✅ Has seleccionado la oferta: ' + price + '\n(Simulación de compra)');
+                });
+            });
+
+            // --- Inicializar contador de espectadores ---
+            viewerEl.textContent = '102';
+
+            console.log('🎬 Seminario en vivo listo. Duración: 1h 30min');
+            console.log('⏱️ Hitos: Ofertas a 1h02, Cupos a 1h27');
+
+            // --- Pequeño fix: si el video termina antes de tiempo (por error) ---
+            video.addEventListener('ended', function() {
+                if (!videoEnded) {
+                    finishSession();
+                }
+            });
+
+            // --- Forzar que el video no se detenga al perder foco ---
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden && videoStarted && !videoEnded) {
+                    // Si la pestaña se oculta, el video puede pausarse, lo reanudamos
+                    setTimeout(() => {
+                        if (!video.paused && !video.ended) return;
+                        if (!videoEnded && videoStarted) {
+                            video.play().catch(() => {});
+                        }
+                    }, 300);
+                }
+            });
+
+        })();
+    </script>
+
+</body>
+</html>
