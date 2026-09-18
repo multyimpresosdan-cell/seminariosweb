@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sesión en Vivo - Seminario</title>
+    <style>
+        /* Reset & base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Contenedor principal: simula una ventana de reunión */
+        .meeting-container {
+            max-width: 1100px;
+            width: 100%;
+            background: #0a0a0a;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.9);
+            border: 1px solid #1e1e1e;
+            position: relative;
+        }
+
+        /* Cabecera: espectadores + estado */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 24px;
+            background: #0d0d0d;
+            border-bottom: 1px solid #1a1a1a;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }
+
+        .header .title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header .title .live-badge {
+            background: #ea4335;
+            color: #fff;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 3px 12px;
+            border-radius: 30px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            animation: pulse-dot 1.8s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(0.96);
+            }
+        }
+
+        .header .viewers {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #151515;
+            padding: 5px 16px 5px 12px;
+            border-radius: 40px;
+            border: 1px solid #2a2a2a;
+            font-weight: 500;
+        }
+
+        .header .viewers .eye-icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+
+        .header .viewers .count {
+            font-variant-numeric: tabular-nums;
+            min-width: 40px;
+            text-align: center;
+            transition: color 0.2s;
+        }
+
+        /* Área de video */
+        .video-wrapper {
+            position: relative;
+            background: #000;
+            aspect-ratio: 16 / 9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .video-wrapper video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+            display: block;
+            pointer-events: auto;
+        }
+
+        /* Overlay de "unirme" (se oculta al hacer clic) */
+        .join-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(6px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            transition: opacity 0.6s ease;
+        }
+
+        .join-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .join-overlay .join-btn {
+            background: #0b57d0;
+            color: #fff;
+            border: none;
+            font-size: 28px;
+            font-weight: 600;
+            padding: 18px 56px;
+            border-radius: 60px;
+            cursor: pointer;
+            box-shadow: 0 8px 30px rgba(11, 87, 208, 0.4);
+            transition: 0.2s;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .join-overlay .join-btn:hover {
+            background: #1a6bff;
+            transform: scale(1.02);
+            box-shadow: 0 12px 40px rgba(11, 87, 208, 0.6);
+        }
+
+        .join-overlay .join-btn:active {
+            transform: scale(0.97);
+        }
+
+        .join-overlay .sub-join {
+            margin-top: 18px;
+            color: #aaa;
+            font-size: 15px;
+            letter-spacing: 0.3px;
+        }
+
+        /* Mensaje de fuera de horario */
+        .offline-message {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .offline-message .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .offline-message h2 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .offline-message p {
+            font-size: 18px;
+            color: #aaa;
+            max-width: 500px;
+            line-height: 1.5;
+        }
+
+        /* Pie de página / info extra */
+        .footer-note {
+            padding: 12px 24px 18px;
+            background: #080808;
+            border-top: 1px solid #141414;
+            text-align: center;
+            color: #555;
+            font-size: 13px;
+            letter-spacing: 0.2px;
+        }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            .header {
+                flex-direction: column;
+                gap: 10px;
+                align-items: stretch;
+                text-align: center;
+            }
+            .header .viewers {
+                justify-content: center;
+            }
+            .join-overlay .join-btn {
+                font-size: 22px;
+                padding: 14px 36px;
+            }
+            .offline-message h2 {
+                font-size: 24px;
+            }
+            .offline-message p {
+                font-size: 16px;
+            }
+        }
+
+        /* Ocultar controles nativos del video (solo volumen y fullscreen) */
+        video::-webkit-media-controls {
+            overflow: hidden !important;
+        }
+        video::-webkit-media-controls-enclosure {
+            overflow: hidden !important;
+        }
+        video::-webkit-media-controls-play-button {
+            display: none !important;
+        }
+        video::-webkit-media-controls-timeline {
+            display: none !important;
+        }
+        video::-webkit-media-controls-current-time-display {
+            display: none !important;
+        }
+        video::-webkit-media-controls-time-remaining-display {
+            display: none !important;
+        }
+        video::-webkit-media-controls-seek-back-button {
+            display: none !important;
+        }
+        video::-webkit-media-controls-seek-forward-button {
+            display: none !important;
+        }
+        video::-webkit-media-controls-mute-button {
+            display: inline-block !important;
+        }
+        video::-webkit-media-controls-fullscreen-button {
+            display: inline-block !important;
+        }
+        video::-moz-media-controls-playbutton {
+            display: none !important;
+        }
+        video::-moz-media-controls-timeline {
+            display: none !important;
+        }
+        video::-moz-media-controls-current-time-display {
+            display: none !important;
+        }
+        video::-moz-media-controls-time-remaining-display {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="meeting-container" id="app">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="title">
+                <span>🔴 Seminario en vivo</span>
+                <span class="live-badge">● EN VIVO</span>
+            </div>
+            <div class="viewers">
+                <span class="eye-icon">👁</span>
+                <span class="count" id="viewerCount">102</span>
+                <span style="color:#777;">espectadores</span>
+            </div>
+        </div>
+
+        <!-- VIDEO WRAPPER -->
+        <div class="video-wrapper">
+            <video id="seminarVideo" playsinline muted>
+                <source src="https://assets.cdn.filesafe.space/KOwQNF9hJ5bHwZVTYaPO/media/6aac85cc9f7712ce36c9193f.mp4" type="video/mp4" />
+                Tu navegador no soporta video HTML5.
+            </video>
+
+            <!-- Overlay de "Unirme" -->
+            <div class="join-overlay" id="joinOverlay">
+                <button class="join-btn" id="joinBtn">
+                    🎤 Unirme a la plática
+                </button>
+                <div class="sub-join">Haz clic para activar el sonido y unirte</div>
+            </div>
+
+            <!-- Mensaje de fuera de horario (inicialmente oculto) -->
+            <div class="offline-message" id="offlineMessage" style="display:none;">
+                <div class="icon">🕒</div>
+                <h2>Sesión no disponible</h2>
+                <p id="offlineText">Esta sesión solo está activa el 17 de septiembre de 2026 a partir de las 7:00 pm (hora centro de México).</p>
+            </div>
+        </div>
+
+        <div class="footer-note">
+            ⏱️ La sesión finaliza automáticamente · No se puede pausar ni adelantar
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // --- Elementos DOM ---
+            const video = document.getElementById('seminarVideo');
+            const joinOverlay = document.getElementById('joinOverlay');
+            const joinBtn = document.getElementById('joinBtn');
+            const viewerEl = document.getElementById('viewerCount');
+            const offlineMessage = document.getElementById('offlineMessage');
+            const offlineText = document.getElementById('offlineText');
+
+            // --- Constantes de tiempo (en segundos) ---
+            const VIDEO_DURATION = 53 * 60; // 53 minutos = 3180 segundos
+
+            // --- Hitos para espectadores (en segundos) ---
+            const T_SPECTATOR_MAX = 25 * 60;      // min 25: 192 espectadores
+            const T_SPECTATOR_STABLE_START = 25 * 60;
+            const T_SPECTATOR_STABLE_END = 65 * 60; // 1h05 (pero el video dura 53 min, se ajusta)
+            const T_SPECTATOR_DECLINE_START = 65 * 60;
+            const T_SPECTATOR_DECLINE_END = 87 * 60; // 1h27 (fuera de rango, se ajusta)
+
+            // --- Fecha y hora de activación (17 sep 2026, 7:00 pm hora centro México) ---
+            // Hora centro de México (America/Mexico_City) en septiembre: UTC-5 (CST)
+            const ACTIVATION_YEAR = 2026;
+            const ACTIVATION_MONTH = 8; // Septiembre = 8 (0-indexed)
+            const ACTIVATION_DAY = 17;
+            const ACTIVATION_HOUR = 19; // 7:00 pm
+            const ACTIVATION_MINUTE = 0;
+            const ACTIVATION_SECOND = 0;
+
+            // --- Estado ---
+            let isJoined = false;
+            let videoStarted = false;
+            let videoEnded = false;
+            let animationFrame = null;
+            let startTime = null; // performance.now() cuando inicia el video
+            let elapsedSeconds = 0;
+            let viewerInterval = null;
+            let sessionActive = false;
+
+            // --- Utilidad: obtener fecha/hora actual en zona centro de México ---
+            function getMexicoCityNow() {
+                // Usamos Intl para obtener la hora en America/Mexico_City
+                const now = new Date();
+                const formatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: 'America/Mexico_City',
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                });
+                const parts = formatter.formatToParts(now);
+                const get = (type) => parts.find(p => p.type === type).value;
+                return {
+                    year: parseInt(get('year'), 10),
+                    month: parseInt(get('month'), 10) - 1, // 0-indexed
+                    day: parseInt(get('day'), 10),
+                    hour: parseInt(get('hour'), 10),
+                    minute: parseInt(get('minute'), 10),
+                    second: parseInt(get('second'), 10),
+                    // Para cálculos, construimos un Date "local" con esos valores
+                    // (aunque técnicamente es una fecha en la zona, la usamos como referencia)
+                    toDate: () => new Date(
+                        parseInt(get('year'), 10),
+                        parseInt(get('month'), 10) - 1,
+                        parseInt(get('day'), 10),
+                        parseInt(get('hour'), 10),
+                        parseInt(get('minute'), 10),
+                        parseInt(get('second'), 10)
+                    )
+                };
+            }
+
+            // --- Verificar si la sesión está activa según la fecha/hora ---
+            function isSessionActive() {
+                const now = getMexicoCityNow();
+                // Construir fecha de activación en la misma "zona" (usando el mismo constructor)
+                // Nota: esto es una simplificación, pero funciona para la comparación.
+                const activationDate = new Date(
+                    ACTIVATION_YEAR,
+                    ACTIVATION_MONTH,
+                    ACTIVATION_DAY,
+                    ACTIVATION_HOUR,
+                    ACTIVATION_MINUTE,
+                    ACTIVATION_SECOND
+                );
+                // Si la fecha actual es anterior, no activo
+                if (now.toDate() < activationDate) {
+                    return false;
+                }
+                // Si es posterior al día de activación + duración + margen, no activo
+                // La sesión dura 53 minutos, pero damos un margen de 2 horas para que
+                // si alguien entra justo al final, aún pueda ver algo.
+                const sessionEnd = new Date(activationDate.getTime() + (VIDEO_DURATION + 7200) * 1000);
+                if (now.toDate() > sessionEnd) {
+                    return false;
+                }
+                return true;
+            }
+
+            // --- Calcular el offset inicial del video en segundos ---
+            function getInitialOffset() {
+                const now = getMexicoCityNow();
+                const activationDate = new Date(
+                    ACTIVATION_YEAR,
+                    ACTIVATION_MONTH,
+                    ACTIVATION_DAY,
+                    ACTIVATION_HOUR,
+                    ACTIVATION_MINUTE,
+                    ACTIVATION_SECOND
+                );
+                const diffMs = now.toDate().getTime() - activationDate.getTime();
+                if (diffMs < 0) return 0;
+                const diffSeconds = Math.floor(diffMs / 1000);
+                // Si ya pasó la duración del video, no se reproduce
+                if (diffSeconds >= VIDEO_DURATION) return VIDEO_DURATION;
+                return diffSeconds;
+            }
+
+            // --- Funciones de espectadores (ajustadas a 53 minutos) ---
+            function getViewerCount(seconds) {
+                // Ajustamos los hitos proporcionalmente a la duración real (53 min)
+                const DURATION = VIDEO_DURATION;
+                // Al principio: 102
+                if (seconds <= 0) return 102;
+                // Subida progresiva hasta minuto 25: 102 -> 192
+                if (seconds <= T_SPECTATOR_MAX) {
+                    const progress = seconds / T_SPECTATOR_MAX;
+                    return Math.round(102 + progress * (192 - 102));
+                }
+                // Entre min 25 y el final (53 min): oscila entre 180 y 204
+                if (seconds > T_SPECTATOR_MAX && seconds <= DURATION) {
+                    const t = (seconds - T_SPECTATOR_MAX) / (DURATION - T_SPECTATOR_MAX);
+                    const wave = Math.sin(t * Math.PI * 6) * 10 + 2;
+                    return Math.round(192 + wave);
+                }
+                return 1;
+            }
+
+            // --- Actualizar contador de espectadores ---
+            function updateViewerCount(seconds) {
+                const count = getViewerCount(seconds);
+                viewerEl.textContent = count;
+            }
+
+            // --- Loop principal de sincronización ---
+            function syncLoop() {
+                if (!videoStarted || videoEnded) {
+                    animationFrame = requestAnimationFrame(syncLoop);
+                    return;
+                }
+
+                const now = performance.now();
+                const delta = (now - startTime) / 1000;
+                elapsedSeconds = Math.min(delta, VIDEO_DURATION);
+
+                // Actualizar espectadores
+                updateViewerCount(elapsedSeconds);
+
+                // Verificar si el video terminó
+                if (elapsedSeconds >= VIDEO_DURATION) {
+                    finishSession();
+                    return;
+                }
+
+                animationFrame = requestAnimationFrame(syncLoop);
+            }
+
+            // --- Finalizar sesión ---
+            function finishSession() {
+                if (videoEnded) return;
+                videoEnded = true;
+                video.pause();
+                video.currentTime = 0;
+
+                // Mostrar mensaje de finalización
+                const overlay = document.createElement('div');
+                overlay.style.position = 'absolute';
+                overlay.style.inset = '0';
+                overlay.style.background = 'rgba(0,0,0,0.8)';
+                overlay.style.display = 'flex';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.style.flexDirection = 'column';
+                overlay.style.zIndex = '30';
+                overlay.style.color = '#fff';
+                overlay.style.fontSize = '28px';
+                overlay.style.fontWeight = '600';
+                overlay.style.padding = '20px';
+                overlay.innerHTML = `
+                        <div style="font-size:48px;margin-bottom:16px;">🏁</div>
+                        <div>Sesión finalizada</div>
+                        <div style="font-size:18px;font-weight:400;color:#aaa;margin-top:10px;">Gracias por asistir</div>
+                    `;
+                const wrapper = document.querySelector('.video-wrapper');
+                wrapper.appendChild(overlay);
+
+                if (animationFrame) cancelAnimationFrame(animationFrame);
+                if (viewerInterval) clearInterval(viewerInterval);
+                video.style.pointerEvents = 'none';
+            }
+
+            // --- Iniciar la sesión ---
+            function startSession() {
+                if (isJoined) return;
+
+                // Verificar si la sesión está activa
+                if (!isSessionActive()) {
+                    showOfflineMessage();
+                    return;
+                }
+
+                isJoined = true;
+                joinOverlay.classList.add('hidden');
+
+                // Calcular offset inicial
+                const offset = getInitialOffset();
+                if (offset >= VIDEO_DURATION) {
+                    // Ya terminó la sesión
+                    videoEnded = true;
+                    finishSession();
+                    return;
+                }
+
+                // Establecer tiempo inicial
+                video.currentTime = offset;
+                video.muted = false;
+
+                // Reproducir
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        videoStarted = true;
+                        startTime = performance.now() - (offset * 1000); // Ajustar para que elapsed coincida
+                        if (animationFrame) cancelAnimationFrame(animationFrame);
+                        animationFrame = requestAnimationFrame(syncLoop);
+                        updateViewerCount(offset);
+                    }).catch(err => {
+                        console.warn('Error al reproducir:', err);
+                        video.muted = true;
+                        video.play().then(() => {
+                            video.muted = false;
+                            videoStarted = true;
+                            startTime = performance.now() - (offset * 1000);
+                            animationFrame = requestAnimationFrame(syncLoop);
+                            updateViewerCount(offset);
+                        }).catch(e => {
+                            alert('No se pudo iniciar el video. Intenta de nuevo.');
+                            isJoined = false;
+                            joinOverlay.classList.remove('hidden');
+                        });
+                    });
+                }
+
+                if (viewerInterval) clearInterval(viewerInterval);
+                viewerInterval = setInterval(() => {
+                    if (!videoStarted || videoEnded) return;
+                    const now = performance.now();
+                    const delta = (now - startTime) / 1000;
+                    if (delta < VIDEO_DURATION) {
+                        updateViewerCount(delta);
+                    }
+                }, 1000);
+            }
+
+            // --- Mostrar mensaje de fuera de horario ---
+            function showOfflineMessage() {
+                joinOverlay.style.display = 'none';
+                offlineMessage.style.display = 'flex';
+                const now = getMexicoCityNow();
+                const activationStr = '17 de septiembre de 2026 a las 7:00 pm (hora centro de México)';
+                if (now.toDate() < new Date(ACTIVATION_YEAR, ACTIVATION_MONTH, ACTIVATION_DAY, ACTIVATION_HOUR, ACTIVATION_MINUTE)) {
+                    offlineText.textContent = `Esta sesión estará disponible el ${activationStr}.`;
+                } else {
+                    offlineText.textContent = 'La sesión ya ha finalizado.';
+                }
+            }
+
+            // --- Evento del botón unirme ---
+            joinBtn.addEventListener('click', startSession);
+
+            // --- Prevenir pausa y seek ---
+            video.addEventListener('pause', function() {
+                if (!videoEnded && videoStarted) {
+                    video.play().catch(() => {});
+                }
+            });
+
+            video.addEventListener('seeking', function() {
+                if (!videoEnded && videoStarted) {
+                    if (elapsedSeconds > 0 && elapsedSeconds < VIDEO_DURATION) {
+                        video.currentTime = Math.min(elapsedSeconds, VIDEO_DURATION - 0.5);
+                    }
+                }
+            });
+
+            video.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+            });
+
+            // Prevenir teclas
+            document.addEventListener('keydown', function(e) {
+                if (e.target === video) {
+                    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                    }
+                }
+            });
+
+            // --- Verificación periódica de disponibilidad ---
+            function checkAvailability() {
+                if (!isSessionActive() && !isJoined) {
+                    showOfflineMessage();
+                }
+            }
+
+            // --- Inicialización ---
+            // Verificar al cargar
+            if (!isSessionActive()) {
+                showOfflineMessage();
+            } else {
+                viewerEl.textContent = '102';
+            }
+
+            // Revisar cada 30 segundos si la sesión se vuelve activa (por si el usuario entró antes de la hora)
+            setInterval(function() {
+                if (!isJoined && !videoStarted) {
+                    if (isSessionActive()) {
+                        // La sesión se activó, ocultar mensaje offline y mostrar join
+                        offlineMessage.style.display = 'none';
+                        joinOverlay.style.display = 'flex';
+                    }
+                }
+            }, 30000);
+
+            console.log('🎬 Seminario en vivo - Duración: 53 minutos');
+            console.log('📅 Activación: 17 sep 2026, 7:00 pm (hora centro México)');
+
+            video.addEventListener('ended', function() {
+                if (!videoEnded) {
+                    finishSession();
+                }
+            });
+
+            document.addEventListener('visibilitychange', function() {
+                if (document.hidden && videoStarted && !videoEnded) {
+                    setTimeout(() => {
+                        if (!video.paused && !video.ended) return;
+                        if (!videoEnded && videoStarted) {
+                            video.play().catch(() => {});
+                        }
+                    }, 300);
+                }
+            });
+
+        })();
+    </script>
+
+</body>
+</html>
